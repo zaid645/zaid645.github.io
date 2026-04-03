@@ -32,6 +32,244 @@
         }
     </script>
 
+    <!-- Skrip Utama -->
+    <script>
+        // DATA MUSIK DINAMIS
+        const musicData = [
+            {
+                theme_name: "Tema: Calm / Santai",
+                theme_icon: "fa-wind",
+                theme_icon_color: "text-blue-400",
+                border_color: "border-t-blue-500",
+                item_text_color: "text-blue-200",
+                accent_color: "blue",
+                songs: [
+                    { title: "Windy Meadow", file_name: "Calm1 - Windy Meadow.mp3", icon: "fa-music", id: "windy" },
+                    { title: "Mystic Forest", file_name: "Calm2 - Mystic Forest.mp3", icon: "fa-tree", id: "mystic" },
+                    { title: "River Flow", file_name: "Calm3 - River Flow.mp3", icon: "fa-water", id: "river" },
+                    { title: "Abandoned Village", file_name: "Calm4 - Abandoned Village.mp3", icon: "fa-house-chimney-crack", id: "village" },
+                    { title: "Ancient Ruin", file_name: "Calm5 - Ancient Ruin.mp3", icon: "fa-archway", id: "ruin" }
+                ]
+            },
+            {
+                theme_name: "Tema: Horror / Tegang",
+                theme_icon: "fa-ghost",
+                theme_icon_color: "text-red-500",
+                border_color: "border-t-red-600",
+                item_text_color: "text-red-300",
+                accent_color: "red",
+                songs: [
+                    { title: "Sad Bell", file_name: "Horror1 - Sad Bell.mp3", icon: "fa-bell", id: "bell" },
+                    { title: "Sleepy Music Box", file_name: "Horror2- Sleepy Music Box.mp3", icon: "fa-box-open", id: "box" }
+                ]
+            }
+        ];
+
+        // Mencegah Klik Kanan
+        document.addEventListener("contextmenu", e => e.preventDefault());
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById("toast");
+            if (!toast) return;
+            toast.innerHTML = isError 
+                ? `<i class="fa-solid fa-triangle-exclamation mr-2"></i>${message}` 
+                : `<i class="fa-solid fa-check-circle mr-2"></i>${message}`;
+            
+            toast.style.backgroundColor = isError ? '#ef4444' : '#10b981';
+            toast.className = "show";
+            setTimeout(() => { toast.className = ""; }, 3000);
+        }
+
+        function copyEmail() {
+            const email = document.getElementById('email-text').innerText;
+            navigator.clipboard.writeText(email)
+                .then(() => showToast('Email berhasil disalin!'))
+                .catch(() => showToast('Gagal menyalin email', true));
+        }
+
+        // --- Logika Audio Player Kustom ---
+        
+        function stopAllAudio() {
+            const audios = document.querySelectorAll('audio');
+            audios.forEach(audio => {
+                audio.pause();
+                audio.currentTime = 0; // Tambahan: Reset waktu kembali ke awal
+                const id = audio.id.replace('audio-', '');
+                updateUIState(id, false);
+            });
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+
+        function updateUIState(id, isPlaying) {
+            const playIcon = document.getElementById(`play-icon-${id}`);
+            if (playIcon) {
+                playIcon.className = isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+            }
+        }
+
+        function togglePlay(id) {
+            const audio = document.getElementById(`audio-${id}`);
+            if (audio.paused) {
+                // Jangan reset diri sendiri jika di-play lagi, cukup matikan yang lain
+                const currentSaves = audio.currentTime;
+                stopAllAudio();
+                audio.currentTime = currentSaves; // kembalikan waktu karena stopAllAudio mereset semua
+                
+                audio.play();
+                updateUIState(id, true);
+            } else {
+                audio.pause();
+                updateUIState(id, false);
+            }
+        }
+
+        // --- Fungsi Baru: Mengatur Waktu secara Dinamis ---
+        function seekAudio(event, id) {
+            const audio = document.getElementById(`audio-${id}`);
+            const container = document.getElementById(`progress-container-${id}`);
+            
+            // Pastikan audio ada dan durasinya valid
+            if (!audio || !container || isNaN(audio.duration)) return;
+
+            // Hitung posisi klik relatif terhadap panjang container
+            const rect = container.getBoundingClientRect();
+            const offsetX = event.clientX - rect.left;
+            const percent = Math.max(0, Math.min(1, offsetX / rect.width));
+            
+            // Ubah waktu pemutaran
+            audio.currentTime = percent * audio.duration;
+        }
+
+        async function loadLocalAudio(id, fileName) {
+            const btn = document.getElementById(`btn-load-${id}`);
+            const player = document.getElementById(`player-${id}`);
+            const audio = document.getElementById(`audio-${id}`);
+            const loader = document.getElementById(`loading-${id}`);
+            const progress = document.getElementById(`progress-${id}`);
+            const timeDisplay = document.getElementById(`time-${id}`);
+
+            btn.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            try {
+                // Ganti dengan fetch asli di local Anda, untuk preview ini di-mock
+                const response = await fetch(`audio/${fileName}`);
+                if (!response.ok) throw new Error('File tidak ditemukan');
+
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                stopAllAudio();
+                audio.src = blobUrl;
+                
+                // Event saat audio diputar
+                audio.ontimeupdate = () => {
+                    const percent = (audio.currentTime / audio.duration) * 100;
+                    progress.style.width = `${percent}%`;
+                    timeDisplay.innerText = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration || 0)}`;
+                };
+
+                audio.onended = () => {
+                    updateUIState(id, false);
+                    audio.currentTime = 0; // Reset ke awal setelah selesai
+                };
+
+                loader.classList.add('hidden');
+                player.classList.remove('hidden');
+                audio.play();
+                updateUIState(id, true);
+
+            } catch (err) {
+                console.error(err);
+                loader.classList.add('hidden');
+                btn.classList.remove('hidden');
+                showToast(`Gagal memuat: ${fileName}`, true);
+            }
+        }
+
+        function renderMusic() {
+            const container = document.getElementById('music-container');
+            if (!container) return;
+            let html = '';
+
+            musicData.forEach(category => {
+                let songList = '';
+                category.songs.forEach(song => {
+                    const color = category.accent_color;
+                    songList += `
+                        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 hover:border-${color}-500/30 transition-colors">
+                            <div class="flex justify-between items-center mb-3">
+                                <p class="${category.item_text_color} text-sm font-semibold truncate pr-2">
+                                    <i class="fa-solid ${song.icon} mr-2 opacity-70"></i>${song.title}
+                                </p>
+                                <span id="time-${song.id}" class="text-[10px] text-slate-500 font-mono w-20 text-right">0:00 / 0:00</span>
+                            </div>
+
+                            <div class="relative h-12 flex items-center">
+                                <!-- Tombol Load Awal -->
+                                <button id="btn-load-${song.id}" onclick="loadLocalAudio('${song.id}', '${song.file_name}')" 
+                                    class="w-full py-2 bg-${color}-500/10 hover:bg-${color}-500/20 text-${color}-400 text-xs font-bold rounded-lg border border-${color}-500/20 transition-all">
+                                    <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Ambil Audio
+                                </button>
+
+                                <!-- Loader -->
+                                <div id="loading-${song.id}" class="hidden w-full flex justify-center items-center text-xs text-slate-400">
+                                    <i class="fa-solid fa-spinner animate-spin mr-2"></i> Menyiapkan...
+                                </div>
+
+                                <!-- Player Kustom -->
+                                <div id="player-${song.id}" class="hidden w-full flex items-center gap-3">
+                                    <button onclick="togglePlay('${song.id}')" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-${color}-500/20 text-${color}-400 hover:scale-110 transition-transform">
+                                        <i id="play-icon-${song.id}" class="fa-solid fa-play"></i>
+                                    </button>
+                                    
+                                    <!-- Progress Bar Container (Kini bisa diklik) -->
+                                    <div id="progress-container-${song.id}" onclick="seekAudio(event, '${song.id}')" class="flex-grow h-2 hover:h-3 bg-slate-700 rounded-full overflow-hidden cursor-pointer transition-all group">
+                                        <div id="progress-${song.id}" class="h-full bg-gradient-to-r from-${color}-500 to-${color}-400 w-0 transition-all duration-100 pointer-events-none group-hover:brightness-110"></div>
+                                    </div>
+                                    
+                                    <audio id="audio-${song.id}" class="hidden"></audio>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                    <div class="glass-card p-6 rounded-2xl border-t-4 ${category.border_color}">
+                        <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                            <div class="p-2 rounded-lg bg-slate-800 border border-white/5">
+                                <i class="fa-solid ${category.theme_icon} ${category.theme_icon_color}"></i>
+                            </div>
+                            ${category.theme_name}
+                        </h3>
+                        <div class="space-y-4">
+                            ${songList}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        window.onload = function() {
+            renderMusic();
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) entry.target.classList.add('is-visible');
+                });
+            }, { threshold: 0.1 });
+            document.querySelectorAll('.fade-in-section').forEach(s => observer.observe(s));
+        };
+    </script>
+
     <style>
         body {
             background-color: #0f172a;
@@ -43,10 +281,11 @@
         }
 
         .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
         .timeline-item::before {
@@ -64,14 +303,13 @@
 
         .timeline-item:hover::before {
             background: #a855f7;
-            transform: scale(1.2);
+            transform: scale(1.3);
         }
 
         .fade-in-section {
             opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
-            will-change: opacity, visibility;
+            transform: translateY(30px);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .fade-in-section.is-visible {
@@ -85,14 +323,14 @@
             background-color: #10b981; 
             color: #fff; 
             text-align: center; 
-            border-radius: 8px; 
+            border-radius: 12px; 
             padding: 16px; 
             position: fixed; 
-            z-index: 50; 
+            z-index: 100; 
             left: 50%; 
             bottom: 30px; 
             transform: translateX(-50%);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
             font-size: 14px;
             opacity: 0;
             transition: opacity 0.3s, bottom 0.3s;
@@ -103,38 +341,53 @@
             opacity: 1;
             bottom: 50px;
         }
+
+        /* Safelist warna dinamis tailwind */
+        .bg-blue-500\/10 { background-color: rgba(59, 130, 246, 0.1); }
+        .bg-blue-500\/20 { background-color: rgba(59, 130, 246, 0.2); }
+        .text-blue-400 { color: #60a5fa; }
+        .border-blue-500\/20 { border-color: rgba(59, 130, 246, 0.2); }
+        .from-blue-500 { --tw-gradient-from: #3b82f6; }
+
+        .bg-red-500\/10 { background-color: rgba(239, 68, 68, 0.1); }
+        .bg-red-500\/20 { background-color: rgba(239, 68, 68, 0.2); }
+        .text-red-400 { color: #f87171; }
+        .border-red-500\/20 { border-color: rgba(239, 68, 68, 0.2); }
+        .from-red-500 { --tw-gradient-from: #ef4444; }
     </style>
 </head>
-<body class="text-slate-200 antialiased selection:bg-primary selection:text-white pb-12">
+<body class="text-slate-200 antialiased selection:bg-primary selection:text-white pb-20 select-none">
 
     <main class="max-w-5xl mx-auto px-6 py-12 md:py-20">
         
         <!-- Header Profile -->
-        <header class="text-center mb-16 fade-in-section">
-            <div class="relative w-32 h-32 mx-auto mb-6 group">
-                <div class="absolute inset-0 bg-gradient-to-tr from-primary to-secondary rounded-full blur animate-pulse opacity-75 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div class="relative w-full h-full rounded-full overflow-hidden border-2 border-white/20 bg-slate-800 flex items-center justify-center">
-                    <img src="crow.jpg" alt="Foto Profil Zaid Asyrof" class="w-full h-full object-cover">
+        <header class="text-center mb-20 fade-in-section">
+            <div class="relative w-36 h-36 mx-auto mb-8 group">
+                <div class="absolute inset-0 bg-gradient-to-tr from-primary to-secondary rounded-full blur-xl animate-pulse opacity-50 group-hover:opacity-80 transition-opacity"></div>
+                <div class="relative w-full h-full rounded-full overflow-hidden border-2 border-white/10 p-1 bg-slate-900 flex items-center justify-center shadow-2xl">
+                    <img src="crow.jpg" alt="Zaid Asyrof" class="w-full h-full rounded-full object-cover group-hover:scale-105 transition-transform" onerror="this.src='https://via.placeholder.com/150/1e1e2f/ffffff?text=Zaid'">
                 </div>
             </div>
             
-            <h1 class="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-indigo-200 to-purple-200 mb-2">
+            <h1 class="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400 mb-3">
                 Zaid Asyrof
             </h1>
-            <p class="text-lg text-slate-400 font-light">Mahasiswa, Game Developer & Komposer Musik</p>
+            <p class="text-lg md:text-xl text-slate-400 font-light tracking-wide">Game Developer • Music Composer • Student</p>
         </header>
 
         <!-- Bagian Tentang Saya -->
-        <section class="max-w-3xl mx-auto mb-12 glass-card rounded-2xl p-8 fade-in-section">
-            <h2 class="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-address-card text-primary"></i> Tentang Saya
+        <section class="max-w-3xl mx-auto mb-20 glass-card rounded-3xl p-10 fade-in-section">
+            <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/20 text-primary text-sm">
+                    <i class="fa-solid fa-user"></i>
+                </span>
+                Tentang Saya
             </h2>
-            <p class="text-slate-300 leading-relaxed">
-                Halo! Saya adalah seorang mahasiswa yang berdedikasi dengan ketertarikan kuat pada teknologi, dunia game development, dan aransemen audio. 
-                Bagi saya, pengembangan karya digital adalah perpaduan sempurna antara logika pemrograman, kreativitas visual, dan atmosfer suara yang imersif. 
-                Halaman ini merangkum perjalanan akademis serta eksplorasi saya dalam membangun pengalaman digital yang interaktif.
+            <p class="text-slate-300 leading-relaxed text-lg">
+                Seorang mahasiswa yang memadukan logika sistem dengan estetika audio-visual. Berfokus pada pengembangan pengalaman digital yang imersif melalui <span class="text-pink-400 font-semibold">Game Development</span> dan <span class="text-emerald-400 font-semibold">Sound Design</span>.
             </p>
         </section>
+
 
         <!-- Bagian Keahlian (Skills) -->
         <section class="max-w-3xl mx-auto mb-16 fade-in-section">
@@ -214,197 +467,123 @@
         </section>
 
         <!-- Bagian Karya / Portfolio Game -->
-        <section class="mb-16 fade-in-section">
-            <div class="text-center mb-10">
-                <h2 class="text-3xl font-bold text-white mb-4 flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-gamepad text-pink-500"></i> Karya Game
-                </h2>
-                <p class="max-w-2xl mx-auto text-slate-400 leading-relaxed">
-                    Saya menekuni <strong>Game Development</strong> sebagai hobi. Berikut adalah beberapa proyek yang telah saya kerjakan.
-                </p>
+        <section class="mb-24 fade-in-section">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-white mb-2">Karya Digital</h2>
+                    <p class="text-slate-400">Proyek game yang telah dirilis dan sedang dikembangkan.</p>
+                </div>
+                <div class="h-px flex-grow bg-slate-800 mx-6 hidden md:block"></div>
+                <i class="fa-solid fa-gamepad text-4xl text-slate-700"></i>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <!-- Project 1 -->
-                <div class="glass-card rounded-xl overflow-hidden group hover:border-pink-500/50 transition-all duration-300 hover:-translate-y-2">
-                    <div class="h-40 bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center relative">
-                        <img src="GameIcon/1BBD.jpg" alt="BBD" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                        <span class="absolute bottom-3 left-3 px-2 py-1 text-[10px] font-bold bg-green-500/20 text-green-400 rounded border border-green-500/20 uppercase tracking-wider">Released</span>
+                <div class="glass-card rounded-2xl overflow-hidden group hover:border-pink-500/30 transition-all duration-500 hover:-translate-y-2">
+                    <div class="h-48 relative overflow-hidden">
+                        <img src="GameIcon/1BBD.jpg" alt="Bounce Box Dash" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" onerror="this.src='https://via.placeholder.com/400x200/1e1e2f/ffffff?text=Bounce+Box+Dash'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/90 to-transparent"></div>
+                        <span class="absolute top-4 left-4 px-3 py-1 text-[10px] font-black bg-emerald-500 text-white rounded-full uppercase tracking-widest shadow-lg shadow-emerald-500/20">LIVE ON STORE</span>
                     </div>
-                    <div class="p-5">
-                        <h3 class="font-bold text-white mb-1 group-hover:text-pink-400 transition-colors">Bounce Box Dash</h3>
-                        <p class="text-slate-400 text-xs mb-4 line-clamp-2">Berperan sebagai kotak, hindari rintangan dengan menekan layar</p>
-                        <a href="https://play.google.com/store/apps/details?id=under.graduate.boxbounce" class="text-xs font-medium text-pink-400 hover:underline" target="_blank">Play Store <i class="fa-solid fa-external-link ml-1"></i></a>
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold text-white mb-2 group-hover:text-pink-400 transition-colors">Bounce Box Dash</h3>
+                        <p class="text-slate-400 text-sm mb-6 leading-relaxed">Game arcade minimalis yang mengandalkan ketangkasan. Telah diunduh dan aktif di platform Android.</p>
+                        <a href="https://play.google.com/store/apps/details?id=under.graduate.boxbounce" target="_blank" class="inline-flex items-center gap-2 text-sm font-bold text-pink-400 hover:text-pink-300 transition-colors">
+                            Buka di Play Store <i class="fa-solid fa-arrow-right-long"></i>
+                        </a>
                     </div>
                 </div>
 
                 <!-- Panel Coming Soon -->
-                <div class="rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/30 flex flex-col items-center justify-center p-6 text-center hover:bg-slate-800/50 transition-colors h-full min-h-[220px]">
-                    <i class="fa-solid fa-hammer text-slate-500 mb-3"></i>
-                    <h3 class="text-sm font-semibold text-slate-300">Project Coming Soon</h3>
-                    <p class="text-slate-500 text-[10px] mt-1 italic">Stay tuned for more updates!</p>
+                <div class="rounded-2xl border-2 border-dashed border-slate-800 bg-white/5 flex flex-col items-center justify-center p-8 text-center group hover:bg-white/10 transition-colors">
+                    <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4 group-hover:rotate-12 transition-transform">
+                        <i class="fa-solid fa-hammer text-2xl text-slate-500"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-300">Proyek Masa Depan</h3>
+                    <p class="text-slate-500 text-sm mt-2 max-w-[200px]">Sedang dalam tahap riset dan pengembangan konsep.</p>
                 </div>
             </div>
         </section>
-<!-- Bagian Proyek Musik -->
-        <section class="mb-20 fade-in-section">
-            <div class="text-center mb-10">
-                <h2 class="text-3xl font-bold text-white mb-4 flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-compact-disc text-emerald-500"></i> Proyek Musik Latar
-                </h2>
-                <p class="max-w-2xl mx-auto text-slate-400 leading-relaxed">
-                    Eksplorasi aransemen audio menggunakan LMMS untuk menciptakan berbagai atmosfer suasana.
-                </p>
+
+        <!-- Bagian Proyek Musik -->
+        <section class="mb-24 fade-in-section">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-white mb-4">Galeri Suara</h2>
+                <div class="w-20 h-1 bg-emerald-500 mx-auto rounded-full"></div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Genre: Calm -->
-                <div class="glass-card p-6 rounded-xl border-t-4 border-t-blue-500 group">
-                    <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-wind text-blue-400"></i> Tema: Calm / Santai
-                    </h3>
-                    <div class="space-y-4">
-                        <!-- Windy Meadow -->
-                        <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-                            <p class="text-blue-200 text-sm font-semibold mb-2"><i class="fa-solid fa-music mr-2"></i>Windy Meadow</p>
-                            <iframe frameborder="0" width="100%" height="60" src="https://drive.google.com/file/d/1_OWEd5T61LocGwuKwp73rK2NOfUyYQEQ/preview" class="rounded-md opacity-80 hover:opacity-100 transition-opacity"></iframe>
-                        </div>
-                        <!-- Mystic Forest -->
-                        <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-                            <p class="text-blue-200 text-sm font-semibold mb-2"><i class="fa-solid fa-tree mr-2"></i>Mystic Forest</p>
-                            <iframe frameborder="0" width="100%" height="60" src="https://drive.google.com/file/d/1Hyq7YGhpVEbBJAZ4YOFeKVgrgpWK96eV/preview" class="rounded-md opacity-80 hover:opacity-100 transition-opacity"></iframe>
-                        </div>
-                        <!-- River Flow -->
-                        <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-                            <p class="text-blue-200 text-sm font-semibold mb-2"><i class="fa-solid fa-water mr-2"></i>River Flow</p>
-                            <iframe frameborder="0" width="100%" height="60" src="https://drive.google.com/file/d/15xYmSf3ni7529S2NEgwE9jtmFkp-b7x8/preview" class="rounded-md opacity-80 hover:opacity-100 transition-opacity"></iframe>
-                        </div>
-                        <!-- Abandoned Village -->
-                        <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-                            <p class="text-blue-200 text-sm font-semibold mb-2"><i class="fa-solid fa-house-chimney-crack mr-2"></i>Abandoned Village</p>
-                            <iframe frameborder="0" width="100%" height="60" src="https://drive.google.com/file/d/1IWwV32PoeZXDvrLiDhx-lJ7QRaLV7aK0/preview" class="rounded-md opacity-80 hover:opacity-100 transition-opacity"></iframe>
-                        </div>
-                        <!-- Ancient Ruin -->
-                        <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-                            <p class="text-blue-200 text-sm font-semibold mb-2"><i class="fa-solid fa-archway mr-2"></i>Ancient Ruin</p>
-                            <iframe frameborder="0" width="100%" height="60" src="https://drive.google.com/file/d/1lLxUtihUyhBgHalVhYsMbd1e-MmuVvKe/preview" class="rounded-md opacity-80 hover:opacity-100 transition-opacity"></iframe>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Genre: Horror -->
-                <div class="glass-card p-6 rounded-xl border-t-4 border-t-red-600 group">
-                    <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-ghost text-red-500"></i> Tema: Horror / Tegang
-                    </h3>
-                    <div class="space-y-4">
-                        <!-- Sad Bell -->
-                        <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-                            <p class="text-red-300 text-sm font-semibold mb-2"><i class="fa-solid fa-bell mr-2"></i>Sad Bell</p>
-                            <iframe frameborder="0" width="100%" height="60" src="https://drive.google.com/file/d/1DzrpQFolo8ANicKh2BuGqRU2Q4qZ6G5n/preview" class="rounded-md opacity-80 hover:opacity-100 transition-opacity"></iframe>
-                        </div>
-                        <!-- Sleepy Music Box -->
-                        <div class="bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-                            <p class="text-red-300 text-sm font-semibold mb-2"><i class="fa-solid fa-box-open mr-2"></i>Sleepy Music Box</p>
-                            <iframe frameborder="0" width="100%" height="60" src="https://drive.google.com/file/d/1dlvQ54ci0PM5a4GV9zFB4ViWSE7I75T9/preview" class="rounded-md opacity-80 hover:opacity-100 transition-opacity"></iframe>
-                        </div>
-                    </div>
-                </div>
+            <!-- Wadah Kategori Musik -->
+            <div id="music-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Dimuat oleh JavaScript -->
             </div>
         </section>
 
         <!-- Bagian Riwayat Pendidikan -->
-        <section class="max-w-3xl mx-auto mb-20 fade-in-section">
-            <h2 class="text-2xl font-semibold text-white mb-8 flex items-center gap-2">
-                <i class="fa-solid fa-graduation-cap text-secondary"></i> Riwayat Pendidikan
+        <section class="max-w-4xl mx-auto mb-24 fade-in-section">
+            <h2 class="text-2xl font-bold text-white mb-12 flex items-center gap-4">
+                <span class="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary/20 text-secondary">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </span>
+                Perjalanan Akademis
             </h2>
 
-            <div class="relative border-l-2 border-slate-700 ml-3 space-y-10">
-                <div class="timeline-item pl-8 relative">
-                    <span class="absolute -left-[44px] flex items-center justify-center w-8 h-8 rounded-full bg-slate-900 border border-secondary text-secondary text-xs font-bold">
-                        <i class="fa-solid fa-university"></i>
-                    </span>
+            <div class="relative border-l-2 border-slate-800 ml-5 space-y-12">
+                <!-- PT -->
+                <div class="timeline-item pl-10 relative">
                     <h3 class="text-xl font-bold text-white">Universitas Bhineka PGRI</h3>
-                    <div class="flex items-center gap-2 text-sm text-primary font-medium mt-1 mb-2">
-                        <span class="bg-primary/10 px-2 py-0.5 rounded">Sedang Berlangsung</span>
-                    </div>
-                    <p class="text-slate-400">Jurusan Pendidikan Teknologi Informasi <br> Saya mengikuti UKM Master of Ceremony</p>
+                    <div class="text-primary font-bold text-sm mt-1 uppercase tracking-tighter">Pendidikan Teknologi Informasi • 2023 - Sekarang</div>
+                    <p class="text-slate-400 mt-3 text-sm leading-relaxed">Aktif mengeksplorasi metodologi pengajaran berbasis teknologi dan berkontribusi dalam UKM Master of Ceremony (MC).</p>
                 </div>
-                <div class="timeline-item pl-8"><h3 class="text-xl font-bold text-white">
-                    SMA Negeri 1 Kauman</h3>
-                    <div class="text-sm text-slate-500 mt-1">
-                        Lulus 2023 <br>
-                        Jurusan Matematika dan Ilmu Pengetahuan Alam (MIPA) <br>
-                        Mengikuti ekstrakurikuler Teater
-                    </div>
+                <!-- SMA -->
+                <div class="timeline-item pl-10 relative">
+                    <h3 class="text-xl font-bold text-white">SMA Negeri 1 Kauman</h3>
+                    <div class="text-slate-500 text-sm mt-1">MIPA • 2020 - 2023</div>
+                    <p class="text-slate-500 mt-2 text-xs italic">Melatih kepercayaan diri melalui seni peran di ekstrakurikuler Teater.</p>
                 </div>
-                <div class="timeline-item pl-8"><h3 class="text-xl font-bold text-white">
-                    MTsN 1 Tulungagung</h3><div class="text-sm text-slate-500 mt-1">
-                        Lulus 2020 <br>
-                        Mengikuti ekstrakurikuler Pramuka
-                    </div>
-                </div>
-                <div class="timeline-item pl-8"><h3 class="text-xl font-bold text-white">
-                    SDN 1 Kenayan</h3>
-                    <div class="text-sm text-slate-500 mt-1">
-                        Lulus 2017 <br>
-                        Mengikuti ekstrakurikuler Pramuka
-                    </div>
+                <!-- MTs -->
+                <div class="timeline-item pl-10 relative">
+                    <h3 class="text-xl font-bold text-white">MTsN 1 Tulungagung</h3>
+                    <div class="text-slate-500 text-sm mt-1">Lulus 2020</div>
                 </div>
             </div>
         </section>
         
         <!-- Bagian Kontak -->
-        <section class="max-w-4xl mx-auto glass-card rounded-2xl p-8 fade-in-section">
-            <h2 class="text-2xl font-semibold text-white mb-6 text-center">Hubungi Saya</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section class="max-w-4xl mx-auto glass-card rounded-3xl p-10 fade-in-section border-t-2 border-primary/20">
+            <h2 class="text-2xl font-bold text-white mb-8 text-center">Mari Terhubung</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <!-- Facebook -->
-                <a href="https://www.facebook.com/EiEnHoRaiJin/" target="_blank" class="group flex items-center justify-center gap-3 p-4 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/20 transition-all">
-                    <i class="fa-brands fa-facebook text-2xl text-blue-500"></i>
-                    <span class="font-semibold text-blue-100 text-sm md:text-base">HoraiImmoral</span>
+                <a href="https://www.facebook.com/EiEnHoRaiJin/" target="_blank" class="flex flex-col items-center gap-3 p-6 rounded-2xl bg-blue-600/5 border border-blue-600/10 hover:bg-blue-600/20 transition-all hover:-translate-y-1">
+                    <i class="fa-brands fa-facebook text-3xl text-blue-500"></i>
+                    <span class="text-sm font-bold text-slate-300">Facebook</span>
                 </a>
 
                 <!-- Itch.io -->
-                <a href="https://zen-asro.itch.io/" target="_blank" class="group flex items-center justify-center gap-3 p-4 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-600/20 transition-all">
-                    <i class="fa-brands fa-itch-io text-2xl text-rose-500"></i>
-                    <span class="font-semibold text-rose-100 text-sm md:text-base">zen-asro</span>
+                <a href="https://zen-asro.itch.io/" target="_blank" class="flex flex-col items-center gap-3 p-6 rounded-2xl bg-rose-600/5 border border-rose-600/10 hover:bg-rose-600/20 transition-all hover:-translate-y-1">
+                    <i class="fa-brands fa-itch-io text-3xl text-rose-500"></i>
+                    <span class="text-sm font-bold text-slate-300">Itch.io</span>
                 </a>
 
                 <!-- Email -->
-                <button onclick="copyEmail()" class="group flex items-center justify-center gap-3 p-4 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-600/20 transition-all w-full text-left">
-                    <i class="fa-solid fa-envelope text-2xl text-emerald-500"></i>
-                    <span class="font-semibold text-emerald-100 text-xs md:text-sm truncate" id="email-text">aqzaidasyrof@gmail.com</span>
+                <button onclick="copyEmail()" class="flex flex-col items-center gap-3 p-6 rounded-2xl bg-emerald-600/5 border border-emerald-600/10 hover:bg-emerald-600/20 transition-all hover:-translate-y-1">
+                    <i class="fa-solid fa-envelope text-3xl text-emerald-500"></i>
+                    <span class="text-xs font-bold text-slate-300 truncate w-full px-2" id="email-text">aqzaidasyrof@gmail.com</span>
                 </button>
             </div>
         </section>
 
-        <footer class="text-center text-slate-600 text-sm mt-16">
-            <p>&copy; 2026 Zaid Asyrof</p>
+        <footer class="text-center text-slate-600 text-sm mt-20 pb-10">
+            <div class="flex justify-center gap-4 mb-4 opacity-50">
+                <i class="fa-solid fa-code"></i>
+                <i class="fa-solid fa-heart"></i>
+                <i class="fa-solid fa-music"></i>
+            </div>
+            <p>&copy; 2026 Zaid Asyrof • Dibuat dengan semangat kreativitas.</p>
         </footer>
     </main>
 
-    <div id="toast"><i class="fa-solid fa-check-circle mr-2"></i>Email berhasil disalin!</div>
+    <!-- Toast UI -->
+    <div id="toast" class="flex items-center gap-2"></div>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('is-visible');
-                    }
-                });
-            }, { threshold: 0.1 });
-            document.querySelectorAll('.fade-in-section').forEach(s => observer.observe(s));
-        });
-
-        function copyEmail() {
-            const email = document.getElementById('email-text').innerText;
-            navigator.clipboard.writeText(email).then(() => {
-                const toast = document.getElementById("toast");
-                toast.className = "show";
-                setTimeout(() => { toast.className = ""; }, 3000);
-            });
-        }
-    </script>
 </body>
 </html>
