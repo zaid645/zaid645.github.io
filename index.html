@@ -60,7 +60,10 @@
                 accent_color: "red",
                 songs: [
                     { title: "Sad Bell", file_name: "Horror1 - Sad Bell.mp3", icon: "fa-bell", id: "bell" },
-                    { title: "Sleepy Music Box", file_name: "Horror2- Sleepy Music Box.mp3", icon: "fa-box-open", id: "box" }
+                    { title: "Sleepy Music Box", file_name: "Horror2 - Sleepy Music Box.mp3", icon: "fa-box-open", id: "box" },
+                    { title: "Dark The Whispering Catacombs", file_name: "Horror3 - The Whispering Catacombs.mp3", icon: "fa-person-walking-luggage", id: "corridor" },
+                    { title: "The Puppet Master's Workshop", file_name: "Horror4 - The Puppet Workshop.mp3", icon: "fa-child-reaching", id: "lullaby" },
+                    { title: "Abandoned Old Alley", file_name: "Horror5 - Abandoned Old Alley.mp3", icon: "fa-house-chimney-user", id: "mansion" }
                 ]
             }
         ];
@@ -515,6 +518,45 @@
             <!-- Wadah Kategori Musik -->
             <div id="music-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <!-- Dimuat oleh JavaScript -->
+            </div>
+        </section>
+
+        <!-- Bagian Baru: Publikasi Itch.io Embed -->
+        <section class="mb-24 fade-in-section">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-white mb-2">Aset & Publikasi</h2>
+                    <p class="text-slate-400">Temukan BGM, aset game, dan proyek eksperimental lainnya.</p>
+                </div>
+                <div class="h-px flex-grow bg-slate-800 mx-6 hidden md:block"></div>
+                <i class="fa-brands fa-itch-io text-4xl text-rose-500/80"></i>
+            </div>
+
+            <!-- Kontainer Iframe Itch.io -->
+            <div class="flex flex-col items-center justify-center glass-card rounded-3xl p-6 md:p-10 border-t-4 border-t-rose-600">
+                
+                <!-- Grid / Flex dinamis untuk menampung banyak iframe -->
+                <div class="flex flex-wrap justify-center gap-8 w-full">
+                    
+                    <!-- Embed 1 -->
+                    <div class="w-full max-w-[450px] lg:max-w-[500px] rounded-xl overflow-hidden shadow-2xl hover:shadow-rose-500/30 transition-shadow">
+                        <iframe frameborder="0" src="https://itch.io/embed/4444581?border_width=0&amp;bg_color=5a5a5a&amp;fg_color=ffffff&amp;link_color=000000&amp;border_color=ffffff" width="100%" height="165">
+                            <a href="https://zen-asro.itch.io/free-bgm-fantasy-calm">Free BGM - Fantasy Calm by Zen Asro</a>
+                        </iframe>
+                    </div>
+
+                    <!-- Embed 2 (Duplikat Uji Coba) -->
+                     <div class="w-full max-w-[450px] lg:max-w-[500px] rounded-xl overflow-hidden shadow-2xl hover:shadow-rose-500/30 transition-shadow">
+                        <iframe frameborder="0" src="https://itch.io/embed/4453061?border_width=0&amp;bg_color=5a5a5a&amp;fg_color=ffffff&amp;link_color=000000&amp;border_color=ffffff" width="100%" height="165">
+                            <a href="https://zen-asro.itch.io/free-bgm-horror-loop-soundtrack">Free BGM - Horror Loop Soundtrack by Zen Asro</a>
+                        </iframe>
+                    </div>
+
+                </div>
+                
+                <a href="https://zen-asro.itch.io/" target="_blank" class="mt-10 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-colors font-semibold border border-rose-500/20">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Kunjungi Halaman Itch.io
+                </a>
             </div>
         </section>
 
